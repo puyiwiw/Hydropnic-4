@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hydroponic Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    background: #0a3a5c url('hydroponic-bg.png') center/cover no-repeat fixed;
+    color: #fff;
+    padding: 32px 20px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 {
+    font-family: 'Fredoka', sans-serif;
+    font-weight: 800;
+    text-align: center;
+    font-size: clamp(40px, 8vw, 72px);
+    color: #5ab0ff;
+    letter-spacing: .08em;
+    margin-bottom: 32px;
+    text-shadow: 0 6px 0 #1a4a7a, 0 8px 20px rgba(0,0,0,.5);
+  }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } .humidity { grid-row: span 2; } }
+  .card {
+    border-radius: 24px;
+    background: rgba(255,255,255,.10);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.2);
+    box-shadow: 0 8px 32px rgba(0,0,0,.3);
+    padding: 24px;
+  }
+  .card h2 { text-align: center; font-weight: 700; letter-spacing: .18em; margin-bottom: 18px; font-size: 14px; }
+  .big { font-size: 72px; font-weight: 300; text-align: center; }
+  .humidity-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .bar { height: 12px; border-radius: 999px; background: rgba(255,255,255,.2); overflow: hidden; }
+  .bar > div { height: 100%; background: linear-gradient(90deg,#5ab0ff,#fff); transition: width .3s; }
+  input[type=range] { width: 100%; margin-top: 16px; accent-color: #5ab0ff; }
+
+  /* Mode */
+  .mode-row { display: flex; gap: 12px; }
+  .mode-btn {
+    flex: 1; padding: 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(90,176,255,.5); background: rgba(255,255,255,.10); color: rgba(255,255,255,.8);
+    font-weight: 600; transition: .2s;
+  }
+  .mode-btn.active { background: #1565c0; color: #fff; box-shadow: 0 6px 20px rgba(21,101,192,.4); }
+
+  /* Pump toggle */
+  .pump-pill {
+    position: relative; width: 100%; height: 48px; border-radius: 999px; border: none;
+    background: rgba(255,255,255,.2); cursor: pointer; overflow: hidden; margin-bottom: 12px;
+    transition: background .3s;
+  }
+  .pump-pill:last-child { margin-bottom: 0; }
+  .pump-pill.active { background: #1e4a7a; }
+  .pump-pill[disabled] { opacity: .6; cursor: not-allowed; }
+  .pump-knob {
+    position: absolute; top: 4px; width: 40px; height: 40px; border-radius: 999px;
+    background: rgba(255,255,255,.95); box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    transition: left .3s ease-out;
+  }
+  .pump-label {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; letter-spacing: .12em; z-index: 2; pointer-events: none; color: #1e4a7a;
+  }
+  .pump-pill.active .pump-label { color: #fff; }
+
+  /* Microbit */
+  .mb-btn {
+    width: 100%; height: 44px; border-radius: 999px; display: flex; align-items: center;
+    justify-content: center; gap: 10px; border: 1px solid rgba(90,176,255,.4);
+    background: rgba(255,255,255,.10); color: rgba(255,255,255,.7); cursor: pointer;
+    font-weight: 500; margin-bottom: 12px; transition: .2s;
+  }
+  .mb-btn:last-child { margin-bottom: 0; }
+  .mb-btn.active { background: #1565c0; color: #fff; }
+  .mb-btn svg { width: 18px; height: 18px; }
+
+  /* Cloud Sync (Firebase) */
+  .cloud { grid-column: 1 / -1; }
+  .cloud-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; margin-bottom: 18px; color: #fff; }
+  .cloud-title .icon {
+    width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg,#5ab0ff,#1565c0); box-shadow: 0 4px 12px rgba(21,101,192,.5);
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 700; letter-spacing: .12em;
+    color: #5ab0ff; margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; height: 44px; padding: 0 16px; border-radius: 12px;
+    border: 1.5px solid rgba(90,176,255,.5); background: rgba(255,255,255,.08);
+    color: #fff; font-family: inherit; font-size: 14px; outline: none; transition: .2s;
+  }
+  .field input::placeholder { color: rgba(255,255,255,.45); }
+  .field input:focus { border-color: #5ab0ff; background: rgba(255,255,255,.14); box-shadow: 0 0 0 3px rgba(90,176,255,.2); }
+  .connect-btn {
+    width: 100%; height: 50px; border-radius: 12px; border: none; cursor: pointer;
+    background: linear-gradient(135deg,#1565c0,#5ab0ff); color: #fff;
+    font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center;
+    gap: 10px; box-shadow: 0 8px 24px rgba(21,101,192,.5); transition: .2s; margin-top: 8px;
+  }
+  .connect-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(21,101,192,.6); }
+  .connect-btn.connected { background: linear-gradient(135deg,#0a7a3a,#2dbb6b); box-shadow: 0 8px 24px rgba(45,187,107,.4); }
+  .connect-btn svg { width: 18px; height: 18px; }
+  .status { text-align: center; margin-top: 10px; font-size: 13px; color: rgba(255,255,255,.7); min-height: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HYDROPONIC</h1>
+  <div class="grid">
+    <div class="card humidity">
+      <h2>HUMIDITY</h2>
+      <div class="humidity-row">
+        <span class="big" id="humVal">55%</span>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+      </div>
+      <div class="bar"><div id="humBar" style="width:55%"></div></div>
+      <input type="range" min="0" max="100" value="55" id="humRange">
+    </div>
+
+    <div class="card">
+      <p style="text-align:center;margin-bottom:12px;">Mode</p>
+      <div class="mode-row">
+        <button class="mode-btn active" data-mode="automatic">Automatic</button>
+        <button class="mode-btn" data-mode="manual">Manual</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>WATER PUMP</h2>
+      <button class="pump-pill active" id="pumpOff" data-side="left">
+        <span class="pump-knob" style="left:4px"></span>
+        <span class="pump-label">OFF</span>
+      </button>
+      <button class="pump-pill" id="pumpOn" data-side="right">
+        <span class="pump-knob" style="left:calc(100% - 44px)"></span>
+        <span class="pump-label">ON</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <h2 style="letter-spacing:.05em;font-size:16px;">Microbit</h2>
+      <button class="mb-btn" id="connectBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8l12 8-6 4V4l6 4-12 8"/></svg>
+        Connect microbit
+      </button>
+      <button class="mb-btn active" id="disconnectBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="2" x2="22" y2="22"/><path d="M8.5 16.5a5 5 0 017 0M5 12.5a10 10 0 0114 0M2 8.8a15 15 0 0120 0"/></svg>
+        Disconnect microbit
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>TEMPERATURE</h2>
+      <div class="big" id="tempVal">23°C</div>
+      <input type="range" min="-10" max="50" value="23" id="tempRange">
+    </div>
+
+    <!-- Cloud Sync (Firebase) -->
+    <div class="card cloud">
+      <div class="cloud-title">
+        <span class="icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M17.5 19a4.5 4.5 0 100-9 6 6 0 00-11.7 1.5A4 4 0 006 19h11.5z"/></svg>
+        </span>
+        Cloud Sync (Firebase)
+      </div>
+      <div class="field">
+        <label for="fbApiKey">API KEY</label>
+        <input id="fbApiKey" type="text" placeholder="AIzaSy..." />
+      </div>
+      <div class="field">
+        <label for="fbDbUrl">DATABASE URL</label>
+        <input id="fbDbUrl" type="text" placeholder="https://project-rtdb.firebaseio.com" />
+      </div>
+      <div class="field">
+        <label for="fbNodePath">NODE PATH</label>
+        <input id="fbNodePath" type="text" value="smarthome/ruangan1" />
+      </div>
+      <button class="connect-btn" id="fbConnect">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>
+        Hubungkan Firebase
+      </button>
+      <div class="status" id="fbStatus">Belum terhubung</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  // ===== Firebase =====
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // Firebase di-init dinamis dari form Cloud Sync
+  let db = null;
+  let nodePath = "smarthome/ruangan1";
+
+  const fbApiKey   = document.getElementById('fbApiKey');
+  const fbDbUrl    = document.getElementById('fbDbUrl');
+  const fbNodePath = document.getElementById('fbNodePath');
+  const fbConnect  = document.getElementById('fbConnect');
+  const fbStatus   = document.getElementById('fbStatus');
+
+  // Pulihkan dari localStorage
+  try {
+    const saved = JSON.parse(localStorage.getItem('fbCfg') || 'null');
+    if (saved) { fbApiKey.value = saved.apiKey || ''; fbDbUrl.value = saved.databaseURL || ''; fbNodePath.value = saved.path || nodePath; }
+  } catch {}
+
+  fbConnect.addEventListener('click', async () => {
+    const apiKey = fbApiKey.value.trim();
+    const databaseURL = fbDbUrl.value.trim();
+    nodePath = fbNodePath.value.trim() || 'smarthome/ruangan1';
+    if (!apiKey || !databaseURL) { fbStatus.textContent = 'API Key & Database URL wajib diisi'; return; }
+    try {
+      const m = databaseURL.match(/https?:\/\/([^.]+)/);
+      const projectId = m ? m[1].replace(/-default-rtdb$/, '') : 'app';
+      const app = initializeApp({ apiKey, authDomain: `${projectId}.firebaseapp.com`, databaseURL, projectId });
+      db = getDatabase(app);
+      localStorage.setItem('fbCfg', JSON.stringify({ apiKey, databaseURL, path: nodePath }));
+      fbConnect.classList.add('connected');
+      fbConnect.lastChild.textContent = ' Terhubung';
+      fbStatus.textContent = `Tersinkron ke /${nodePath}`;
+      // Sinkron turun
+      onValue(ref(db, nodePath), snap => {
+        const v = snap.val(); if (!v) return;
+        if (typeof v.humidity === 'number')    { humRange.value = v.humidity; humRange.dispatchEvent(new Event('input')); }
+        if (typeof v.temperature === 'number') { tempRange.value = v.temperature; tempRange.dispatchEvent(new Event('input')); }
+      });
+      pushState({});
+    } catch (err) {
+      console.error(err);
+      fbStatus.textContent = 'Gagal terhubung: ' + (err.message || err);
+    }
+  });
+
+  const pushState = (patch) => {
+    if (!db) return;
+    set(ref(db, nodePath), { ...state, ...patch, ts: Date.now() }).catch(()=>{});
+  };
+
+
+  const state = { humidity: 55, temperature: 23, mode: "automatic", pumpOn: false, connected: false };
+
+  // ===== Humidity =====
+  const humRange = document.getElementById('humRange');
+  humRange.addEventListener('input', e => {
+    state.humidity = Number(e.target.value);
+    document.getElementById('humVal').textContent = state.humidity + '%';
+    document.getElementById('humBar').style.width = state.humidity + '%';
+    pushState({ humidity: state.humidity });
+  });
+
+  // ===== Temperature =====
+  const tempRange = document.getElementById('tempRange');
+  tempRange.addEventListener('input', e => {
+    state.temperature = Number(e.target.value);
+    document.getElementById('tempVal').textContent = state.temperature + '°C';
+    pushState({ temperature: state.temperature });
+  });
+
+  // ===== Mode =====
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.mode = btn.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      updatePumpDisabled();
+      pushState({ mode: state.mode });
+    });
+  });
+
+  // ===== Water pump (knob bergerak berlawanan arah) =====
+  const pumpOffEl = document.getElementById('pumpOff');
+  const pumpOnEl  = document.getElementById('pumpOn');
+  function setPump(on) {
+    state.pumpOn = on;
+    pumpOffEl.classList.toggle('active', !on);
+    pumpOnEl.classList.toggle('active',   on);
+    pumpOffEl.querySelector('.pump-knob').style.left = !on ? '4px' : 'calc(100% - 44px)';
+    pumpOnEl .querySelector('.pump-knob').style.left =  on ? 'calc(100% - 44px)' : '4px';
+    pushState({ pumpOn: on });
+  }
+  function updatePumpDisabled() {
+    [pumpOffEl, pumpOnEl].forEach(b => b.disabled = state.mode !== 'manual');
+  }
+  pumpOffEl.addEventListener('click', () => state.mode === 'manual' && setPump(false));
+  pumpOnEl .addEventListener('click', () => state.mode === 'manual' && setPump(true));
+  updatePumpDisabled();
+
+  // ===== Microbit =====
+  const connectBtn = document.getElementById('connectBtn');
+  const disconnectBtn = document.getElementById('disconnectBtn');
+  function setConnected(c) {
+    state.connected = c;
+    connectBtn.classList.toggle('active', c);
+    disconnectBtn.classList.toggle('active', !c);
+    pushState({ connected: c });
+  }
+  connectBtn.addEventListener('click', () => setConnected(true));
+  disconnectBtn.addEventListener('click', () => setConnected(false));
+  setConnected(false);
+
+  // (sinkron dari Firebase di-handle di handler tombol "Hubungkan Firebase")
+
+</script>
+
+</body>
+</html>
